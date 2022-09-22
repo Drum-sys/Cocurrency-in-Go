@@ -335,7 +335,56 @@ tee := func(done <-chan interface{}, in <-chan int) (<-chan int, <-chan int) {
 		fmt.Printf("out1: %v, out2: %v\n", val, <-out2)
 	}
 ```	
-	
+
+### Bridge-channel
+有时候需要从一个有序的channel中消费值， 不同于前面提到的将多个channel组合为一个channel，可能无序。
+```go
+func main() {
+	bridge := func(done <-chan interface{}, chanStream <-chan <-chan interface{}) <-chan interface{} {
+		valStream := make(chan interface{})
+		go func() {
+			defer close(valStream)
+			for {
+				var stream <-chan interface{}
+				select {
+				case maybeStream, ok := <-chanStream:
+					if ok == false {
+						return
+					}
+					stream = maybeStream
+				case <-done:
+					return
+				}
+				for val := range stream {
+					select {
+					case valStream <-val:
+					case <-done:
+					}
+				}
+			}
+		}()
+		return valStream
+	}
+
+	genVals := func() <-chan <-chan interface{} {
+		chanStream := make(chan (<-chan interface{}))
+		go func() {
+			defer close(chanStream)
+			for i := 0; i < 10; i++ {
+				stream := make(chan interface{}, 1)
+				stream <- i
+				close(stream)
+				chanStream <- stream
+			}
+		}()
+		return chanStream
+	}
+	for v := range bridge(nil, genVals()) {
+		fmt.Printf("%v ", v)
+	}
+}
+```
+
 
 
 
