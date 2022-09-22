@@ -297,6 +297,7 @@ func main() {
 
 ### Tee-channel
 将一个channel分离成两个channel
+```go
 tee := func(done <-chan interface{}, in <-chan int) (<-chan int, <-chan int) {
 		out1 := make(chan int)
 		out2 := make(chan int)
@@ -333,6 +334,8 @@ tee := func(done <-chan interface{}, in <-chan int) (<-chan int, <-chan int) {
 	for val := range out1 {
 		fmt.Printf("out1: %v, out2: %v\n", val, <-out2)
 	}
+```	
+	
 
 
 
