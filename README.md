@@ -231,4 +231,31 @@ func main() {
 ![图片](https://user-images.githubusercontent.com/82791037/191648285-997b7e1d-16f8-4e00-b0f9-ddc86828e8a3.png)
 
 
+### fanIn and fanOut
+如果一个pipeline运行时间过长，或者某个stage计算代价昂贵，我们可以重用pipeline的每个stage， 并行化这个stage提升pipeline的性能。
+```go
+fanIn := func(done <-chan interface{}, channels ...<-chan interface{}) <-chan interface{} {
+		var wg sync.WaitGroup
+		mulStream := make(chan interface{})
+		mulPlex := func(c <-chan interface{}) {
+			defer wg.Done()
+			for i := range c {
+				select {
+				case <-done:
+					return
+				case mulStream <-i:
+				}
+			}
+		}
+		wg.Add(len(channels))
+		for _, c := range channels {
+			go mulPlex(c)
+		}
 
+		go func() {
+			wg.Wait()
+			close(mulStream)
+		}()
+		return mulStream
+	}
+```
