@@ -259,3 +259,81 @@ fanIn := func(done <-chan interface{}, channels ...<-chan interface{}) <-chan in
 		return mulStream
 	}
 ```
+
+### Or-done-channel
+当代码通过done管道取消时，不知道goroutine取消是否意味着正在读取的channel也被取消。
+```go
+func main() {
+	orDone := func(done <-chan interface{}, c <-chan interface{}) <-chan interface{} {
+		valStream := make(chan interface{})
+		go func() {
+			defer close(valStream)
+			for {
+				select {
+				case <-done:
+					return
+				case v, ok := <-c:
+					if ok == false {
+						return
+					}
+					// 添加select语句判断 
+					select {
+					case valStream <-v:
+					case <-done:
+					}
+				}
+			}
+		}()
+		return valStream
+	}
+	mychan := make(chan interface{}, 4)
+	done := make(chan interface{})
+	defer close(done)
+	for val := range orDone(done, mychan) {
+		fmt.Println(val)
+	}
+}
+```
+
+### Tee-channel
+将一个channel分离成两个channel
+tee := func(done <-chan interface{}, in <-chan int) (<-chan int, <-chan int) {
+		out1 := make(chan int)
+		out2 := make(chan int)
+		go func() {
+			defer close(out1)
+			defer close(out2)
+			for val := range orDone(done, in) {
+				//fmt.Println(val)
+				var out1, out2 = out1, out2
+				for i := 0; i < 2; i++ {
+					select {
+					case <-done:
+						//return
+					case out1 <-val:
+						out1 = nil
+					case out2 <-val:
+						out2 = nil
+					}
+				}
+			}
+		}()
+		return out1, out2
+	}
+
+	mychan := make(chan int, 5)
+	mychan <- 1
+	mychan <- 2
+	mychan <- 3
+	done := make(chan interface{})
+	defer close(done)
+	//out1, out2 := tee(done, take(done, repeat(done, 1, 2), 4))
+	out1, out2 := tee(done, mychan)
+	close(mychan)
+	for val := range out1 {
+		fmt.Printf("out1: %v, out2: %v\n", val, <-out2)
+	}
+
+
+
+
