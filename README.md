@@ -24,7 +24,8 @@
 ```
 
 ### Preventing Goroutine Leaks
-父goroutine应该告诉子goroutine什么时候退出，一般情况下传递一个无缓冲的channel，结合for select使用，当关闭无缓冲channel时，select接收到关闭信号，return。避免goroutine一直留在内存中
+父goroutine应该告诉子goroutine什么时候退出，一般情况下传递一个无缓冲的channel，结合for select使用，当关闭无缓冲channel时，select接收到关闭信号，return。避免goroutine一直留在内存中.
+这只能适用于有限的情况， 可以使用context包。
 ```go
 func main() {
 	doWork := func(done <- chan interface{}, strings <-chan string) <-chan interface{} {
